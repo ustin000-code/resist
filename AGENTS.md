@@ -88,7 +88,8 @@ MESSENGER_API_PROXY=http://127.0.0.1:3000 npm run serve:dist
 
 - **`.env`** — сервер (шаблон: **`.env.example`**). Не коммитить с секретами.
 - **`.env.production`** — для **Vite** при сборке клиента (шаблон: **`.env.production.example`**). Для публичного репозитория — плейсхолдеры; на своём VPS можно держать реальный хост (это не секрет вроде пароля БД).
-- **`.gitignore`** в корне исключает `.env`, `.env.local` и т.п. (секреты сервера); **`capacitor.config.json` в `android/.../assets` может быть в `.gitignore` шаблона Capacitor** — тогда важно не потерять копирование из корня через `npm run build:mobile`.
+- **`.gitignore`** в корне исключает `.env`, `.env.local` и т.п. (секреты сервера), а также **`firebase-service-account.json`** (Admin SDK — не коммитить). На сервере файл кладут рядом с проектом и указывают `FIREBASE_SERVICE_ACCOUNT_PATH` в `.env`.
+- **`capacitor.config.json` в `android/.../assets` может быть в `.gitignore` шаблона Capacitor** — тогда важно не потерять копирование из корня через `npm run build:mobile`.
 
 ---
 
