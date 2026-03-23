@@ -1,0 +1,21 @@
+node_modules/
+.env
+.env.local
+.env.*.local
+uploads/
+
+# Секреты Firebase Admin (никогда в git — полный доступ к проекту)
+firebase-service-account.json
+*.log
+.DS_Store
+
+# Android / IDE
+android/.gradle/
+android/**/build/
+android/local.properties
+*.apk
+*.aab
+
+# iOS
+ios/App/Pods/
+ios/**/*.xcuserdata/

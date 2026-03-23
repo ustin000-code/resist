@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
+  <meta name="theme-color" content="#09090b">
+  <!-- В APK подставляется из VITE_API_BASE_URL при сборке — для resolveUploadUrl(/uploads/…) -->
+  <meta name="resist-api-base" content="http://5.45.119.39:3000" />
+  <link rel="icon" href="./brand-logo.png" type="image/png" sizes="512x512">
+  <link rel="apple-touch-icon" href="./brand-logo.png">
+  <title>Resist</title>
+  <!-- Стили в head: иначе FOUC — разметка без CSS, пока не выполнится main.js -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+  <script type="module" crossorigin src="./assets/index-BHh2ytrk.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-_bi20SfA.css">
+</head>
+<body class="app app--guest">
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-brand" aria-hidden="true">
+      <span class="sidebar-brand-mark" title="Resist">
+        <img class="sidebar-brand-logo" src="./brand-logo.png" width="44" height="44" alt="" decoding="async" />
+      </span>
+      <div class="sidebar-brand-text">
+        <span class="sidebar-brand-title">Resist</span>
+        <span class="sidebar-brand-tag">чаты и группы</span>
+      </div>
+    </div>
+    <header id="sidebarHeader" class="sidebar-header" hidden>
+      <div class="sidebar-header-row">
+        <div id="me" class="profile-badge profile-badge--header"></div>
+        <div class="sidebar-header-actions">
+          <button type="button" id="mobileSearchBtn" class="btn-icon-search-mobile" title="Поиск по сообщениям" aria-label="Поиск по сообщениям">
+            <svg class="btn-icon-search-mobile__svg" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          </button>
+          <button type="button" id="logoutBtn" class="btn-icon-logout" title="Выйти" aria-label="Выйти из аккаунта">
+            <svg class="btn-icon-logout__svg" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div id="authSection" class="auth-panel" style="display:none;">
+      <div id="authStepInvite" class="auth-step" hidden>
+        <p class="panel-hint">Вы перешли по пригласительной ссылке. Укажите телефон, email и имя — вход без кода из письма.</p>
+        <label class="field">
+          <span class="field-label">Телефон</span>
+          <input id="invitePhone" class="input" type="tel" placeholder="+7 900 000-00-00" autocomplete="tel">
+        </label>
+        <label class="field">
+          <span class="field-label">Email</span>
+          <input id="inviteEmail" class="input" type="email" placeholder="name@mail.com" autocomplete="email">
+        </label>
+        <label class="field">
+          <span class="field-label">Имя <span class="field-label-optional">(для нового аккаунта)</span></span>
+          <input id="inviteName" class="input" placeholder="Как вас показывать в чатах" autocomplete="name">
+        </label>
+        <div class="btn-row btn-row--single">
+          <button type="button" id="inviteLoginBtn" class="btn btn-primary btn-block">Войти</button>
+        </div>
+      </div>
+
+      <div id="authStep1" class="auth-step">
+        <p class="panel-hint">Шаг 1. Укажите телефон и email — на почту придёт код для входа.</p>
+        <label class="field">
+          <span class="field-label">Телефон</span>
+          <input id="phone" class="input" type="tel" placeholder="+7 900 000-00-00" autocomplete="tel">
+        </label>
+        <label class="field">
+          <span class="field-label">Email</span>
+          <input id="email" class="input" type="email" placeholder="name@mail.com" autocomplete="email">
+        </label>
+        <div class="btn-row btn-row--single">
+          <button type="button" id="requestCodeBtn" class="btn btn-primary btn-block">Отправить код</button>
+        </div>
+      </div>
+
+      <div id="authStep2" class="auth-step" hidden>
+        <p class="panel-hint">Шаг 2. Код из письма на<br><strong id="authEmailHint" class="auth-email-hint"></strong>. Имя — только при <strong>первом</strong> входе (как вас видят в чатах); если уже регистрировались, поле можно оставить пустым.</p>
+        <p id="authMailSentOk" class="auth-mail-ok" hidden>Письмо с кодом отправлено. Проверьте папку «Спам», если письма нет во «Входящих».</p>
+        <p id="authDevWarning" class="auth-dev-warning" hidden></p>
+        <label class="field">
+          <span class="field-label">Имя <span class="field-label-optional">(необязательно при повторном входе)</span></span>
+          <input id="name" class="input" placeholder="При первом входе — как вас называть" autocomplete="name">
+        </label>
+        <label class="field">
+          <span class="field-label">Код из письма</span>
+          <input id="otpCode" class="input" type="text" inputmode="numeric" maxlength="6" placeholder="6 цифр" autocomplete="one-time-code">
+        </label>
+        <div class="btn-row">
+          <button type="button" id="authBackBtn" class="btn btn-ghost btn-sm">Назад</button>
+          <button type="button" id="loginBtn" class="btn btn-primary">Войти</button>
+        </div>
+        <p class="auth-resend">
+          <button type="button" id="resendCodeBtn" class="btn-link">Отправить код ещё раз</button>
+        </p>
+      </div>
+    </div>
+
+    <div id="sidebarBody" class="sidebar-body">
+      <div id="dialogsBlock" class="dialogs-block">
+        <div class="dialogs-block__head">
+          <h4 class="section-title dialogs-block__title">Чаты</h4>
+        </div>
+        <ul id="dialogs" class="dialogs-list"></ul>
+      </div>
+
+      <div id="chatSection" class="chat-tools" style="display:none;">
+        <div id="toolSectionSearch" class="tool-section" data-tool="search">
+          <div class="search-block tool-section__inner">
+            <h4 class="section-title">Поиск по сообщениям</h4>
+            <div class="field field-inline">
+              <input id="searchInput" class="input" type="search" placeholder="Минимум 2 символа…" enterkeyhint="search">
+              <button type="button" id="searchBtn" class="btn btn-secondary btn-sm">Найти</button>
+            </div>
+            <ul id="searchResults" class="search-results" aria-live="polite"></ul>
+          </div>
+        </div>
+
+        <div id="toolSectionContacts" class="tool-section" data-tool="contacts">
+          <div class="contacts-block tool-section__inner">
+            <h4 class="section-title">Контакты</h4>
+            <ul id="contactsList" class="contacts-list"></ul>
+          </div>
+        </div>
+
+        <div id="toolSectionGroup" class="tool-section" data-tool="group">
+          <div class="new-chat-card group-create-card tool-section__inner">
+            <h4 class="section-title">Новая группа</h4>
+            <p class="group-create-hint">Личный чат — нажми на контакт в списке контактов. Здесь — только группа.</p>
+            <button type="button" id="openGroupPickerBtn" class="btn btn-primary btn-sm btn-block">Создать</button>
+            <div id="groupPickerPanel" class="group-picker-panel" hidden>
+              <span class="field-label">Участники</span>
+              <ul id="groupMemberList" class="group-member-list" aria-label="Выбор участников группы"></ul>
+              <p id="groupPickerEmpty" class="group-picker-empty" hidden>Нет контактов. Сначала появятся люди в списке «Контакты» (личные чаты или книга в приложении).</p>
+              <div class="group-picker-actions">
+                <button type="button" id="cancelGroupPickerBtn" class="btn btn-ghost btn-sm">Отмена</button>
+                <button type="button" id="createGroupBtn" class="btn btn-secondary btn-sm">Создать группу</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="toolSectionProfile" class="tool-section" data-tool="profile">
+          <div class="profile-panel tool-section__inner">
+            <h4 class="section-title">Профиль</h4>
+            <div class="profile-avatar-row">
+              <div class="profile-avatar-frame">
+                <img id="profileAvatarPreview" class="profile-avatar-preview" alt="" width="88" height="88" hidden>
+                <span id="profileAvatarPlaceholder" class="profile-avatar-placeholder user-avatar-ph user-avatar-ph--profile" aria-hidden="true">?</span>
+              </div>
+              <div class="profile-avatar-actions">
+                <button type="button" id="profileAvatarBtn" class="btn btn-secondary btn-sm btn-block">Сменить фото</button>
+                <input type="file" id="profileAvatarInput" class="visually-hidden" accept="image/jpeg,image/png,image/webp,image/gif">
+                <p class="profile-hint">JPG, PNG, WebP до 8 МБ</p>
+              </div>
+            </div>
+            <label class="field">
+              <span class="field-label">Имя</span>
+              <input id="profileNameInput" class="input" type="text" autocomplete="name" maxlength="120">
+            </label>
+            <label class="field">
+              <span class="field-label">Email</span>
+              <input id="profileEmailInput" class="input" type="email" autocomplete="email">
+            </label>
+            <div class="field">
+              <span class="field-label">Телефон</span>
+              <p id="profilePhoneDisplay" class="profile-phone-readonly"></p>
+            </div>
+            <p class="profile-hint">Смена email влияет на вход — укажи актуальную почту.</p>
+            <div class="btn-row btn-row--single">
+              <button type="button" id="profileSaveBtn" class="btn btn-primary btn-block">Сохранить</button>
+              <button type="button" id="profileLogoutBtn" class="btn btn-ghost btn-block">Выйти из аккаунта</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <nav id="mobileTabbar" class="mobile-tabbar" aria-label="Разделы приложения" hidden>
+      <button type="button" class="mobile-tabbar__btn mobile-tabbar__btn--chats" data-tool="chats" aria-label="Чаты">
+        <span class="mobile-tabbar__icon-stack">
+          <svg class="mobile-tabbar__icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <span id="mobileTabbarChatsCount" class="mobile-tabbar__badge" aria-hidden="true">0</span>
+        </span>
+        <span class="mobile-tabbar__label">Чаты</span>
+      </button>
+      <button type="button" class="mobile-tabbar__btn" data-tool="contacts" aria-label="Контакты">
+        <svg class="mobile-tabbar__icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span class="mobile-tabbar__label">Контакты</span>
+      </button>
+      <button type="button" class="mobile-tabbar__btn" data-tool="group" aria-label="Группа">
+        <svg class="mobile-tabbar__icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M18 2a3 3 0 0 1 0 6"/></svg>
+        <span class="mobile-tabbar__label">Группа</span>
+      </button>
+      <button type="button" class="mobile-tabbar__btn" data-tool="profile" aria-label="Профиль">
+        <svg class="mobile-tabbar__icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span class="mobile-tabbar__label">Профиль</span>
+      </button>
+    </nav>
+  </aside>
+
+  <main id="chatMain" class="chat-main">
+    <header class="chat-topbar" id="chatTopbar">
+      <button type="button" id="chatBackBtn" class="chat-topbar__back" title="К списку чатов" aria-label="Назад к списку чатов">
+        <svg class="chat-topbar__back-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M15 18l-6-6 6-6"/>
+        </svg>
+      </button>
+      <div class="chat-topbar__text" id="chatTopbarText">
+        <h2 class="chat-topbar__title" id="chatTopbarTitle">Выберите диалог</h2>
+        <p class="chat-topbar__hint" id="chatTopbarHint" hidden></p>
+      </div>
+      <button type="button" id="chatCallBtn" class="chat-topbar__call" hidden title="Аудиозвонок" aria-label="Позвонить">
+        <svg class="chat-topbar__call-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+      </button>
+    </header>
+    <section id="messageSelectionBar" class="message-selection-bar" hidden>
+      <button type="button" id="messageSelectionCancelBtn" class="message-selection-bar__btn message-selection-bar__btn--close" aria-label="Отменить выбор">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+          <path d="M18 6 6 18"/>
+          <path d="m6 6 12 12"/>
+        </svg>
+      </button>
+      <div id="messageSelectionCount" class="message-selection-bar__count">0</div>
+      <div class="message-selection-bar__actions">
+        <button type="button" id="messageSelectionEditBtn" class="message-selection-bar__btn message-selection-bar__btn--action" aria-label="Изменить" title="Изменить" hidden>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          <span>Изменить</span>
+        </button>
+        <button type="button" id="messageSelectionCopyBtn" class="message-selection-bar__btn message-selection-bar__btn--action" aria-label="Копировать" title="Копировать" hidden>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <span>Копировать</span>
+        </button>
+        <button type="button" id="messageSelectionDeleteBtn" class="message-selection-bar__btn message-selection-bar__btn--action message-selection-bar__btn--danger" aria-label="Удалить" title="Удалить" hidden>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="m19 6-1 13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+          <span>Удалить</span>
+        </button>
+      </div>
+    </section>
+    <div id="typingRow" class="typing-row" aria-live="polite"></div>
+    <div class="chat-feed">
+      <div id="chat" class="chat-feed__messages" role="log" aria-live="polite" aria-relevant="additions"></div>
+    </div>
+    <section id="messageQuickActions" class="message-quick-actions" hidden>
+      <button type="button" id="messageReplyBtn" class="message-quick-actions__btn">
+        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 14-5-5 5-5"/><path d="M4 9h9a7 7 0 0 1 7 7v4"/></svg>
+        <span>Ответить</span>
+      </button>
+      <button type="button" id="messageForwardBtn" class="message-quick-actions__btn">
+        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14 20 9 15 4"/><path d="M4 20v-1a10 10 0 0 1 10-10h6"/></svg>
+        <span>Переслать</span>
+      </button>
+    </section>
+
+    <div class="composer">
+      <div class="composer__inner">
+        <div id="composerContextBar" class="composer-context-bar" hidden>
+          <div class="composer-context-bar__text">
+            <strong id="composerContextTitle" class="composer-context-bar__title"></strong>
+            <span id="composerContextBody" class="composer-context-bar__body"></span>
+          </div>
+          <button type="button" id="composerContextCloseBtn" class="composer-context-bar__close" aria-label="Сбросить действие">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+              <path d="M18 6 6 18"/>
+              <path d="m6 6 12 12"/>
+            </svg>
+          </button>
+        </div>
+        <div id="composerPendingFile" class="composer-pending-file" hidden>
+          <img id="composerPendingPreview" class="composer-pending-file__thumb" alt="" width="48" height="48" hidden decoding="async" />
+          <span class="composer-pending-file__icon" aria-hidden="true">📎</span>
+          <span id="composerPendingFileName" class="composer-pending-file__name"></span>
+          <button type="button" id="composerPendingFileClear" class="composer-pending-file__clear" title="Убрать файл" aria-label="Убрать вложение">×</button>
+        </div>
+        <div id="inputRow" class="input-row">
+          <button type="button" id="emojiBtn" class="btn btn-icon" title="Эмодзи">😊</button>
+          <textarea id="message" class="input input-message" rows="1" placeholder="Сообщение…"></textarea>
+          <label for="fileInput" class="btn btn-icon" title="Файл">📎</label>
+          <input type="file" id="fileInput" class="visually-hidden">
+          <button type="button" id="sendBtn" class="btn-send" title="Отправить" aria-label="Отправить сообщение">
+            <svg class="btn-send__icon btn-send__icon--arrow" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 20V6"/>
+              <path d="m6 12 6-6 6 6"/>
+            </svg>
+          </button>
+          <div id="emojiBox" class="emoji-popover"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div id="peerProfileOverlay" class="peer-profile-overlay" aria-hidden="true" hidden>
+    <button type="button" class="peer-profile-overlay__backdrop" id="peerProfileBackdrop" aria-label="Закрыть"></button>
+    <div class="peer-profile-overlay__panel" role="dialog" aria-modal="true" aria-labelledby="peerProfileTitle">
+      <button type="button" class="peer-profile-overlay__close" id="peerProfileCloseBtn" aria-label="Закрыть">×</button>
+      <div class="peer-profile-overlay__body">
+        <div class="peer-profile-overlay__avatar-wrap">
+          <img id="peerProfileAvatar" class="peer-profile-overlay__avatar" alt="" width="96" height="96" hidden decoding="async" />
+          <span id="peerProfileAvatarPh" class="peer-profile-overlay__avatar-ph user-avatar-ph user-avatar-ph--peer" aria-hidden="true">?</span>
+        </div>
+        <div id="peerProfileLoading" class="peer-profile-overlay__loading" role="status" aria-live="polite" hidden>
+          <span class="peer-profile-overlay__spinner" aria-hidden="true"></span>
+          <span>Загружаем профиль</span>
+        </div>
+        <h3 id="peerProfileTitle" class="peer-profile-overlay__name">—</h3>
+        <p id="peerProfilePhone" class="peer-profile-overlay__phone">—</p>
+        <p id="peerProfileError" class="peer-profile-overlay__error" hidden></p>
+      </div>
+    </div>
+  </div>
+  <section id="messageDeleteSheet" class="message-delete-sheet" hidden>
+    <button type="button" class="message-delete-sheet__backdrop" id="messageDeleteSheetBackdrop" aria-label="Закрыть"></button>
+    <div class="message-delete-sheet__panel" role="dialog" aria-modal="true" aria-label="Удаление сообщений">
+      <button type="button" id="messageDeleteEveryoneBtn" class="message-delete-sheet__action message-delete-sheet__action--danger" hidden>Удалить у всех</button>
+      <button type="button" id="messageDeleteSelfBtn" class="message-delete-sheet__action">Удалить у себя</button>
+      <button type="button" id="messageDeleteCancelBtn" class="message-delete-sheet__action message-delete-sheet__action--cancel">Отмена</button>
+    </div>
+  </section>
+  <section id="messageForwardSheet" class="message-forward-sheet" hidden>
+    <button type="button" class="message-forward-sheet__backdrop" id="messageForwardSheetBackdrop" aria-label="Закрыть"></button>
+    <div class="message-forward-sheet__panel" role="dialog" aria-modal="true" aria-labelledby="messageForwardSheetTitle">
+      <div class="message-forward-sheet__head">
+        <strong id="messageForwardSheetTitle">Куда переслать</strong>
+      </div>
+      <div id="messageForwardSheetList" class="message-forward-sheet__list"></div>
+      <button type="button" id="messageForwardSheetCancelBtn" class="message-forward-sheet__cancel">Отмена</button>
+    </div>
+  </section>
+
+  <div id="callOverlay" class="call-overlay" aria-modal="true" role="dialog" aria-labelledby="callOverlayStatus" aria-hidden="true">
+    <div class="call-overlay__panel">
+      <p id="callOverlayStatus" class="call-overlay__status"></p>
+      <audio id="callRemoteAudio" class="call-overlay__audio" autoplay playsinline></audio>
+      <div class="call-overlay__actions">
+        <button type="button" id="callAcceptBtn" class="btn btn-primary call-overlay__btn">Принять</button>
+        <button type="button" id="callDeclineBtn" class="btn btn-ghost call-overlay__btn">Отклонить</button>
+        <button type="button" id="callHangupBtn" class="btn call-overlay__btn call-overlay__btn--hangup">Сбросить</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

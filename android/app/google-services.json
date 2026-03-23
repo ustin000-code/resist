@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "98301999541",
+    "project_id": "resist-53b40",
+    "storage_bucket": "resist-53b40.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:98301999541:android:7103b1233d40910dfc41fc",
+        "android_client_info": {
+          "package_name": "Resist.com"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBinxZ6kI3U-lhOhCPdTo8FLxyVIpStwj8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:98301999541:android:3ab198e15007c9f1fc41fc",
+        "android_client_info": {
+          "package_name": "com.messenger.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBinxZ6kI3U-lhOhCPdTo8FLxyVIpStwj8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

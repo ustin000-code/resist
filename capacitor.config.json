@@ -1,0 +1,8 @@
+{
+  "appId": "com.messenger.app",
+  "appName": "Resist",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": true
+  }
+}

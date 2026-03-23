@@ -1,0 +1,6 @@
+---
+description: Контекст проекта Resist (API, мобилка, порты, Capacitor)
+alwaysApply: true
+---
+
+Перед нетривиальными изменениями прочитай **`AGENTS.md`** в корне репозитория: там архитектура, порты **3000** vs **4173**, **`allowMixedContent`**, скрипт **`build:mobile`**, прокси **`vite.config.cjs`**, типичные ошибки `Failed to fetch`.
