@@ -11,6 +11,7 @@ router.get('/ping', (req, res) => {
 
 /** Сообщения чата по id (личный или группа) */
 router.get('/chat/:chatId', auth, messageController.getMessagesByChatId);
+router.get('/chat/:chatId/delta', auth, messageController.getMessagesByChatDelta);
 router.patch('/:messageId', auth, messageController.updateMessage);
 router.post('/delete', auth, messageController.deleteMessages);
 

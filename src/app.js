@@ -29,7 +29,7 @@ const userController = require('./controllers/user.controller');
 
 app.use(cors({
   origin: '*',
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Public-App-Origin'],
 }));
 app.use(express.json());
 

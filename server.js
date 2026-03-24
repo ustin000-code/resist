@@ -33,7 +33,8 @@ app.set('trust proxy', 1);
 app.use(
   cors({
     origin: '*',
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    // APK/WebView шлёт X-Public-App-Origin (INVITE_ALLOW_CLIENT_ORIGIN) — без этого CORS preflight падает → Failed to fetch
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Public-App-Origin'],
   })
 );
 app.use(express.json());
@@ -126,6 +127,9 @@ const io = new Server(server, {
 const userSockets = new Map();
 /** userId (number) -> Set<socketId> c видимым/активным приложением. Для push важен foreground, а не просто online. */
 const userForegroundSockets = new Map();
+/** socketId -> socket, чтобы проверять "протухший" foreground без подавления push при спящем приложении. */
+const socketsById = new Map();
+const FOREGROUND_HEARTBEAT_TTL_MS = 12000;
 
 function upsertSocketPresence(map, userIdRaw, socketId, enabled) {
   const uid = Number(userIdRaw);
@@ -145,6 +149,7 @@ function upsertSocketPresence(map, userIdRaw, socketId, enabled) {
 
 function unregisterUserSocket(socket) {
   const uid = socket._appUserId;
+  socketsById.delete(socket.id);
   if (uid == null) return;
   const set = userSockets.get(uid);
   if (set) {
@@ -168,11 +173,12 @@ function registerUserSocket(socket, userIdRaw) {
     return false;
   }
   unregisterUserSocket(socket);
+  socketsById.set(socket.id, socket);
   socket._appUserId = uid;
-  socket._appForeground = true;
+  socket._appForeground = false;
+  socket._appForegroundAt = 0;
   if (!userSockets.has(uid)) userSockets.set(uid, new Set());
   userSockets.get(uid).add(socket.id);
-  upsertSocketPresence(userForegroundSockets, uid, socket.id, true);
   socket.join(`user:${uid}`);
   return true;
 }
@@ -200,8 +206,20 @@ function userHasForegroundSocket(userIdRaw) {
 
 function foregroundMapForPush() {
   const m = {};
-  for (const id of userForegroundSockets.keys()) {
-    m[String(id)] = true;
+  const now = Date.now();
+  for (const [uid, socketIds] of userForegroundSockets.entries()) {
+    const active = Array.from(socketIds).some((sid) => {
+      const socket = socketsById.get(sid);
+      return Boolean(
+        socket &&
+          socket._appForeground &&
+          typeof socket._appForegroundAt === 'number' &&
+          now - socket._appForegroundAt <= FOREGROUND_HEARTBEAT_TTL_MS
+      );
+    });
+    if (active) {
+      m[String(uid)] = true;
+    }
   }
   return m;
 }
@@ -214,6 +232,7 @@ function broadcastOnlineUsers() {
 
 io.on('connection', (socket) => {
   console.log('👤 User connected:', socket.id);
+  socketsById.set(socket.id, socket);
 
   socket.on('join', (userId) => {
     if (!userId) return;
@@ -225,6 +244,7 @@ io.on('connection', (socket) => {
     if (socket._appUserId == null) return;
     const foreground = payload?.foreground !== false;
     socket._appForeground = foreground;
+    socket._appForegroundAt = Date.now();
     upsertSocketPresence(userForegroundSockets, socket._appUserId, socket.id, foreground);
   });
 

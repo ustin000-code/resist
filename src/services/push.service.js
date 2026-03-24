@@ -4,6 +4,7 @@ const db = require('../config/db');
 
 let adminInited = false;
 let messaging = null;
+const ANDROID_MESSAGES_CHANNEL_ID = 'messages_v2';
 
 function initFirebase() {
   if (adminInited) return messaging;
@@ -137,9 +138,16 @@ async function notifyNewMessage({ message, senderId, foregroundMap, preview }) {
           data: dataStr,
           android: {
             priority: 'high',
+            ttl: 24 * 60 * 60 * 1000,
             notification: {
-              channelId: 'messages',
+              channelId: ANDROID_MESSAGES_CHANNEL_ID,
+              icon: 'ic_stat_resist',
+              color: '#26C6CF',
               sound: 'default',
+              defaultVibrateTimings: true,
+              vibrateTimingsMillis: [0, 250, 180, 320],
+              notificationCount: Math.max(1, badge),
+              visibility: 'public',
               tag: `chat-${chatId}`,
             },
           },

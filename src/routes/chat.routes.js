@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require('../middleware/auth.middleware');
 const chatController = require('../controllers/chat.controller');
 
+router.get('/:userId/delta', auth, chatController.getUserChatsDelta);
 router.get('/:userId', auth, chatController.getUserChats);
 router.post('/create', auth, chatController.createChat);
 router.post('/group', auth, chatController.createGroup);

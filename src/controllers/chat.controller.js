@@ -15,6 +15,183 @@ async function ensureChatUsersArchiveColumn() {
   `);
 }
 
+async function ensureMessageSyncColumns() {
+  await db.query(`
+    ALTER TABLE messages
+    ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMPTZ
+  `);
+  await db.query(`
+    ALTER TABLE messages
+    ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ
+  `);
+  await db.query(`
+    ALTER TABLE messages
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()
+  `);
+  await db.query(`
+    UPDATE messages
+       SET updated_at = COALESCE(updated_at, created_at, NOW())
+     WHERE updated_at IS NULL
+  `);
+}
+
+function parseOptionalTimestamp(value) {
+  if (value == null || value === '') return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+}
+
+async function fetchUserChats(userId, opts = {}) {
+  await ensureChatUsersReadColumn();
+  await ensureChatUsersArchiveColumn();
+  await ensureMessageSyncColumns();
+
+  const afterMessageId = Number(opts.afterMessageId || 0);
+  const afterActivityTs = parseOptionalTimestamp(opts.afterActivityTs);
+  const params = [userId, Number.isFinite(afterMessageId) && afterMessageId > 0 ? afterMessageId : 0, afterActivityTs];
+  const deltaFilter =
+    params[1] > 0 || params[2]
+      ? `
+      AND (
+        (
+          $2::integer > 0
+          AND COALESCE(
+            (
+              SELECT id FROM messages
+              WHERE chat_id = c.id
+              ORDER BY id DESC LIMIT 1
+            ),
+            0
+          ) > $2
+        )
+        OR (
+          $3::timestamptz IS NOT NULL
+          AND COALESCE(
+            (
+              SELECT GREATEST(
+                COALESCE(m.created_at, TO_TIMESTAMP(0)),
+                COALESCE(m.updated_at, m.created_at, TO_TIMESTAMP(0)),
+                COALESCE(m.delivered_at, m.created_at, TO_TIMESTAMP(0)),
+                COALESCE(m.read_at, m.created_at, TO_TIMESTAMP(0))
+              )
+              FROM messages m
+              WHERE m.chat_id = c.id
+              ORDER BY GREATEST(
+                COALESCE(m.created_at, TO_TIMESTAMP(0)),
+                COALESCE(m.updated_at, m.created_at, TO_TIMESTAMP(0)),
+                COALESCE(m.delivered_at, m.created_at, TO_TIMESTAMP(0)),
+                COALESCE(m.read_at, m.created_at, TO_TIMESTAMP(0))
+              ) DESC NULLS LAST,
+              m.id DESC
+              LIMIT 1
+            ),
+            c.created_at
+          ) > $3::timestamptz
+        )
+      )
+    `
+      : '';
+
+  const result = await db.query(
+    `
+      SELECT
+        c.id AS chat_id,
+        CASE
+          WHEN COALESCE(c.type, 'direct') = 'group' THEN COALESCE(c.title, 'Группа')
+          ELSE ou.name
+        END AS name,
+        CASE
+          WHEN COALESCE(c.type, 'direct') = 'group' THEN NULL
+          ELSE ou.id
+        END AS other_user_id,
+        COALESCE(c.type, 'direct') AS chat_type,
+        c.title AS group_title,
+        (
+          SELECT id FROM messages
+          WHERE chat_id = c.id
+          ORDER BY id DESC LIMIT 1
+        ) AS last_message_id,
+        (
+          SELECT text FROM messages
+          WHERE chat_id = c.id
+          ORDER BY id DESC LIMIT 1
+        ) AS last_message,
+        (
+          SELECT created_at FROM messages
+          WHERE chat_id = c.id
+          ORDER BY id DESC LIMIT 1
+        ) AS last_time,
+        COALESCE(
+          (
+            SELECT GREATEST(
+              COALESCE(m.created_at, TO_TIMESTAMP(0)),
+              COALESCE(m.updated_at, m.created_at, TO_TIMESTAMP(0)),
+              COALESCE(m.delivered_at, m.created_at, TO_TIMESTAMP(0)),
+              COALESCE(m.read_at, m.created_at, TO_TIMESTAMP(0))
+            )
+            FROM messages m
+            WHERE m.chat_id = c.id
+            ORDER BY GREATEST(
+              COALESCE(m.created_at, TO_TIMESTAMP(0)),
+              COALESCE(m.updated_at, m.created_at, TO_TIMESTAMP(0)),
+              COALESCE(m.delivered_at, m.created_at, TO_TIMESTAMP(0)),
+              COALESCE(m.read_at, m.created_at, TO_TIMESTAMP(0))
+            ) DESC NULLS LAST,
+            m.id DESC
+            LIMIT 1
+          ),
+          c.created_at
+        ) AS last_activity_at,
+        (
+          SELECT COUNT(*)::int
+          FROM messages m
+          WHERE m.chat_id = c.id
+            AND m.sender_id <> $1::integer
+            AND m.id > COALESCE(me.last_read_message_id, 0)
+        ) AS unread_count,
+        COALESCE(me.is_archived, FALSE) AS is_archived,
+        COALESCE(me.last_read_message_id, 0) AS last_read_message_id
+      FROM chats c
+      JOIN chat_users me ON me.chat_id = c.id AND me.user_id = $1
+      LEFT JOIN LATERAL (
+        SELECT u.id, u.name, u.phone AS other_phone
+        FROM chat_users cu
+        JOIN users u ON u.id = cu.user_id
+        WHERE cu.chat_id = c.id AND cu.user_id <> $1
+        LIMIT 1
+      ) ou ON COALESCE(c.type, 'direct') = 'direct'
+      WHERE (
+          COALESCE(c.type, 'direct') = 'group'
+          OR (
+            COALESCE(c.type, 'direct') = 'direct'
+            AND (SELECT COUNT(*)::int FROM chat_users WHERE chat_id = c.id) = 2
+          )
+        )
+        ${deltaFilter}
+      ORDER BY COALESCE(
+        (
+          SELECT id FROM messages
+          WHERE chat_id = c.id
+          ORDER BY id DESC LIMIT 1
+        ),
+        0
+      ) DESC,
+      COALESCE(
+        (
+          SELECT created_at FROM messages
+          WHERE chat_id = c.id
+          ORDER BY id DESC LIMIT 1
+        ),
+        c.created_at
+      ) DESC
+      `,
+    params
+  );
+
+  return result.rows;
+}
+
 exports.createChat = async (req, res) => {
   const { phone } = req.body;
   const currentUserId = req.user?.id;
@@ -138,71 +315,36 @@ exports.getUserChats = async (req, res) => {
   const userId = raw;
 
   try {
-    await ensureChatUsersReadColumn();
-    await ensureChatUsersArchiveColumn();
-    const result = await db.query(
-      `
-      SELECT
-        c.id AS chat_id,
-        CASE
-          WHEN COALESCE(c.type, 'direct') = 'group' THEN COALESCE(c.title, 'Группа')
-          ELSE ou.name
-        END AS name,
-        CASE
-          WHEN COALESCE(c.type, 'direct') = 'group' THEN NULL
-          ELSE ou.id
-        END AS other_user_id,
-        COALESCE(c.type, 'direct') AS chat_type,
-        c.title AS group_title,
-        (
-          SELECT text FROM messages
-          WHERE chat_id = c.id
-          ORDER BY id DESC LIMIT 1
-        ) AS last_message,
-        (
-          SELECT created_at FROM messages
-          WHERE chat_id = c.id
-          ORDER BY id DESC LIMIT 1
-        ) AS last_time,
-        (
-          SELECT COUNT(*)::int
-          FROM messages m
-          WHERE m.chat_id = c.id
-            AND m.sender_id <> $1::integer
-            AND m.id > COALESCE(me.last_read_message_id, 0)
-        ) AS unread_count
-        ,
-        COALESCE(me.is_archived, FALSE) AS is_archived
-      FROM chats c
-      JOIN chat_users me ON me.chat_id = c.id AND me.user_id = $1
-      LEFT JOIN LATERAL (
-        SELECT u.id, u.name, u.phone AS other_phone
-        FROM chat_users cu
-        JOIN users u ON u.id = cu.user_id
-        WHERE cu.chat_id = c.id AND cu.user_id <> $1
-        LIMIT 1
-      ) ou ON COALESCE(c.type, 'direct') = 'direct'
-      WHERE COALESCE(c.type, 'direct') = 'group'
-         OR (
-              COALESCE(c.type, 'direct') = 'direct'
-              AND (SELECT COUNT(*)::int FROM chat_users WHERE chat_id = c.id) = 2
-            )
-      ORDER BY COALESCE(
-        (
-          SELECT created_at FROM messages
-          WHERE chat_id = c.id
-          ORDER BY id DESC LIMIT 1
-        ),
-        c.created_at
-      ) DESC
-      `,
-      [userId]
-    );
-
-    res.json(result.rows);
+    res.json(await fetchUserChats(userId));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Ошибка чатов' });
+  }
+};
+
+exports.getUserChatsDelta = async (req, res) => {
+  const raw = req.params.userId;
+  if (!/^\d+$/.test(String(raw))) {
+    return res.status(400).json({ error: 'Некорректный id пользователя' });
+  }
+
+  const userId = raw;
+  const afterMessageId = Number(req.query?.after || 0);
+  const afterActivityTs = parseOptionalTimestamp(req.query?.afterTs);
+
+  try {
+    res.json(
+      await fetchUserChats(userId, {
+        afterMessageId:
+          Number.isFinite(afterMessageId) && afterMessageId > 0
+            ? afterMessageId
+            : 0,
+        afterActivityTs,
+      })
+    );
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Ошибка delta-синхронизации чатов' });
   }
 };
 

@@ -45,9 +45,79 @@ function uniquePositiveIds(values) {
   )];
 }
 
+function parseOptionalTimestamp(value) {
+  if (value == null || value === '') return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+}
+
 exports.getMessagesByChatId = async (req, res) => {
   const userId = req.user?.id;
   const chatId = Number(req.params.chatId);
+  const beforeId = Number(req.query?.beforeId || 0);
+  const requestedLimit = Number(req.query?.limit || 0);
+  const limit = Number.isFinite(requestedLimit) && requestedLimit > 0
+    ? Math.min(Math.max(Math.trunc(requestedLimit), 1), 200)
+    : 0;
+
+  try {
+    await ensureMessageActionSchema();
+    if (!userId) {
+      return res.status(401).json({ error: 'Не авторизован' });
+    }
+    if (!chatId) {
+      return res.status(400).json({ error: 'Некорректный chat_id' });
+    }
+
+    const ok = await assertChatMember(chatId, userId);
+    if (!ok) {
+      return res.status(403).json({ error: 'Нет доступа к чату' });
+    }
+
+    const result =
+      limit > 0 || (Number.isFinite(beforeId) && beforeId > 0)
+        ? await db.query(
+            `SELECT page.*
+               FROM (
+                 SELECT m.*
+                   FROM messages m
+                   LEFT JOIN message_hidden_for_users mh
+                     ON mh.message_id = m.id
+                    AND mh.user_id = $2
+                  WHERE m.chat_id = $1
+                    AND mh.message_id IS NULL
+                    AND ($3::integer <= 0 OR m.id < $3)
+                  ORDER BY m.id DESC
+                  LIMIT $4
+               ) page
+              ORDER BY page.id ASC`,
+            [chatId, userId, Number.isFinite(beforeId) && beforeId > 0 ? beforeId : 0, limit || 200]
+          )
+        : await db.query(
+            `SELECT m.*
+               FROM messages m
+               LEFT JOIN message_hidden_for_users mh
+                 ON mh.message_id = m.id
+                AND mh.user_id = $2
+              WHERE m.chat_id = $1
+                AND mh.message_id IS NULL
+              ORDER BY m.id ASC`,
+            [chatId, userId]
+          );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Ошибка загрузки сообщений' });
+  }
+};
+
+exports.getMessagesByChatDelta = async (req, res) => {
+  const userId = req.user?.id;
+  const chatId = Number(req.params.chatId);
+  const afterId = Number(req.query?.afterId || 0);
+  const afterTs = parseOptionalTimestamp(req.query?.afterTs);
 
   try {
     await ensureMessageActionSchema();
@@ -71,14 +141,26 @@ exports.getMessagesByChatId = async (req, res) => {
           AND mh.user_id = $2
         WHERE m.chat_id = $1
           AND mh.message_id IS NULL
+          AND (
+            ($3::integer > 0 AND m.id > $3)
+            OR (
+              $4::timestamptz IS NOT NULL
+              AND GREATEST(
+                COALESCE(m.created_at, TO_TIMESTAMP(0)),
+                COALESCE(m.updated_at, m.created_at, TO_TIMESTAMP(0)),
+                COALESCE(m.delivered_at, m.created_at, TO_TIMESTAMP(0)),
+                COALESCE(m.read_at, m.created_at, TO_TIMESTAMP(0))
+              ) > $4::timestamptz
+            )
+          )
         ORDER BY m.id ASC`,
-      [chatId, userId]
+      [chatId, userId, Number.isFinite(afterId) && afterId > 0 ? afterId : 0, afterTs]
     );
 
     res.json(result.rows);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Ошибка загрузки сообщений' });
+    res.status(500).json({ error: 'Ошибка загрузки delta сообщений' });
   }
 };
 

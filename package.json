@@ -6,10 +6,12 @@
   "scripts": {
     "build:client": "vite build",
     "build:mobile": "node ./scripts/build-mobile.js",
+    "bump:android-version": "node ./scripts/bump-android-version.js",
     "serve:dist": "vite preview",
     "cap:android": "npx cap open android",
     "cap:ios": "npx cap open ios",
-    "build:apk": "npm run build:mobile && cd android && ./gradlew assembleDebug"
+    "build:apk": "npm run bump:android-version && npm run build:mobile && cd android && ./gradlew assembleDebug && npm run apk:to-releases",
+    "apk:to-releases": "node ./scripts/apk-to-releases.js"
   },
   "dependencies": {
     "@capacitor-community/contacts": "^7.1.0",
