@@ -4,12 +4,17 @@ node_modules/
 .env.*.local
 uploads/
 
+# Собранный APK в releases/ не коммитим (копия через npm run apk:to-releases)
+releases/*.apk
+
 # Секреты Firebase Admin (никогда в git — полный доступ к проекту)
 firebase-service-account.json
 *.log
 .DS_Store
 
 # Android / IDE
+android/app/google-services.json
+.env
 android/.gradle/
 android/**/build/
 android/local.properties
@@ -19,3 +24,7 @@ android/local.properties
 # iOS
 ios/App/Pods/
 ios/**/*.xcuserdata/
+
+google-services.json
+android/app/google-services.json
+firebase-service-account.json
